@@ -23,6 +23,7 @@
     },
     "require-dev": {
         "pestphp/pest": "^1.22",
-        "phpstan/phpstan": "^1.8"
+        "phpstan/phpstan": "^1.8",
+        "filp/whoops": "^2.14"
     }
 }

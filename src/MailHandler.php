@@ -3,30 +3,23 @@
 namespace Hollow3464\GraphMailHandler;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\Stream;
 use League\OAuth2\Client\Token\AccessTokenInterface;
-use Microsoft\Graph\Exception\GraphException;
 use Microsoft\Graph\Graph;
-use Microsoft\Graph\Model\Attachment;
+use Microsoft\Graph\Http\GraphResponse;
+use Microsoft\Graph\Model\FileAttachment;
 use Microsoft\Graph\Model\Message;
+use Psr\Log\LoggerInterface;
 
 class MailHandler
 {
-    private string $mail_endpoint;
-    private string $attachment_endpoint;
-
     public function __construct(
         private string $email,
         private AccessTokenInterface $token,
         private Client $client,
-        private Graph $graph
+        private Graph $graph,
+        private LoggerInterface|null $log = null
     ) {
-        $this->mail_endpoint = sprintf(
-            "/users/%s/mailFolders('INBOX')/messages?",
-            $email
-        );
-
-        $this->attachment_endpoint =
-            "https://graph.microsoft.com/v1.0/users/%s/messages/%s/attachments";
     }
 
     private function buildQuery(
@@ -73,76 +66,85 @@ class MailHandler
     /** 
      * @return \Generator<int, array<int,Message>>
      */
-    public function requestPage()
+    public function requestPage(EmailParams $params = null)
     {
+        $filters = [];
+
+        if ($params?->withAttachments) {
+            $filters[] = "hasAttachments eq true";
+        }
+
         $endpoint =
-            $this->mail_endpoint .
-            $this->buildQuery(
-                ['id', 'hasAttachments', 'from'],
-                ['hasAttachments eq true']
-            )
-            . '&$expand=attachments'
-            ;
+            join('?', [
+                OutlookApplicationEndpoints::MAIL_WITH_FOLDER
+                    ->fillEmailFolder($this->email, 'INBOX'),
+                $this->buildQuery(
+                    ['id', 'hasAttachments', 'from'],
+                    $filters
+                )
+            ]);
+
+        if ($params?->includeAttachments) {
+            $endpoint = $endpoint . '&$expand=attachments';
+        }
+
+        if ($this->log) {
+            $this->log->info("Retrieving mail w/ endpoint $endpoint  \n");
+        }
 
         echo "Retrieving mail w/ endpoint $endpoint  \n";
 
-        $mailRetriever = $this
-            ->graph
+        $req = $this->graph
             ->createCollectionRequest('get', $endpoint)
             ->setReturnType(Message::class);
 
-        while (!$mailRetriever->isEnd()) {
-            yield $mailRetriever->getPage();
+        while (!$req->isEnd()) {
+            yield $req->getPage();
         }
-    }
-
-    public function getEmailPages()
-    {
-        yield $this->requestPage();
     }
 
     /** 
      * @return array<int, Message>
      */
-    public function getEmails(): array
+    public function getEmails(EmailParams $params = null): array
     {
         $data = [];
 
-        foreach ($this->getEmailPages() as $page) {
-            foreach ($page as $emails) {
-                $data = array_merge($data, $emails);
-            }
+        foreach ($this->requestPage($params) as $emailPage) {
+            $data = array_merge($data, $emailPage);
         }
-        
+
         return $data;
     }
 
-    public function requestAttachments(string $mail_id)
+    public function createEmail(array $message): Message
     {
-        $attachmentRetriever = $this->graph
-            ->createCollectionRequest(
-                'get',
-                sprintf(
-                    $this->attachment_endpoint,
-                    $this->email,
-                    $mail_id
-                )
+        return $this->graph
+            ->createRequest(
+                'post',
+                OutlookApplicationEndpoints::MAIL_WITH_FOLDER
+                    ->fillEmailFolder($this->email, 'INBOX')
             )
-            ->setReturnType(Attachment::class);
-
-        while (!$attachmentRetriever->isEnd()) {
-            yield $attachmentRetriever->getPage();
-        }
+            ->attachBody($message)
+            ->setReturnType(Message::class)
+            ->execute();
     }
 
-    public function getAttachments(string $mail_id)
+    public function sendEmail(string $id): GraphResponse
     {
-        $data = [];
+        return $this->graph
+            ->createRequest(
+                'post',
+                OutlookApplicationEndpoints::MAIL_SEND->fillEmailSingle($this->email, $id)
+            )
+            ->execute();
+    }
 
-        foreach ($this->requestAttachments($mail_id) as $at) {
-            $data = array_merge($data, $at);
-        }
+    public function createEmailWithAttachment()
+    {
+    }
 
-        return $data;
+    public function createEmailWithBigAttachment()
+    {
     }
 }
