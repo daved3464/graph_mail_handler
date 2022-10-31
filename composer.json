@@ -1,0 +1,28 @@
+{
+    "name": "hollow3464/graph_mail_handler",
+    "description": "Simple Microsoft Graph API Mail Handler",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "Hollow3464\\GraphMailHandler\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "David Chamorro",
+            "email": "daved3464@gmail.com"
+        }
+    ],
+    "require": {        
+        "thenetworg/oauth2-azure": "^2.1",
+        "league/oauth2-client": "^2.6",
+        "guzzlehttp/psr7": "^2.4",
+        "guzzlehttp/guzzle": "^7.5",
+        "symfony/cache": "^6.1",
+        "microsoft/microsoft-graph": "^1.81"
+    },
+    "require-dev": {
+        "pestphp/pest": "^1.22",
+        "phpstan/phpstan": "^1.8"
+    }
+}
