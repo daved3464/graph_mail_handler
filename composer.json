@@ -13,17 +13,15 @@
             "email": "daved3464@gmail.com"
         }
     ],
-    "require": {        
-        "thenetworg/oauth2-azure": "^2.1",
+    "require": {                
         "league/oauth2-client": "^2.6",
         "guzzlehttp/psr7": "^2.4",
-        "guzzlehttp/guzzle": "^7.5",
-        "symfony/cache": "^6.1",
+        "guzzlehttp/guzzle": "^7.5",        
         "microsoft/microsoft-graph": "^1.81"
     },
     "require-dev": {
         "pestphp/pest": "^1.22",
-        "phpstan/phpstan": "^1.8",
-        "filp/whoops": "^2.14"
+        "phpstan/phpstan": "^1.9"
+        
     }
 }

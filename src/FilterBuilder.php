@@ -6,23 +6,14 @@ class FilterBuilder
 {
     private string $filters;
 
-    /** 
-     * @param  array<int, Filter>
-     */
     public function __construct(
-        private $params
-    ) {
+        private array $params
+    ) {        
     }
 
     private function build()
     {
-    }
-
-    private function buildFilterString()
-    {
-    }
-
-    public function getFilters()
-    {
+        $this->filters = join(' ', $this->params);
+        return $this->filters;
     }
 }

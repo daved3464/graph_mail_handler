@@ -2,21 +2,30 @@
 
 namespace Hollow3464\GraphMailHandler;
 
+use Microsoft\Graph\Model\FileAttachment;
+
 class MessageFactory
 {
+    const LOW_IMPORTANCE =  "low";
+    const NORMAL_IMPORTANCE = "normal";
+    const HIGH_IMPORTANCE = "high";
+
+    const HTML_CONTENT = 'html';
+    const TEXT_CONTENT = 'text';
+
     private array|null $message = null;
-    private array $attachments = [];
 
     public function __construct()
     {
         $this->message =  [
             'subject' => '',
-            'importance' => 'low',
+            'importance' => 'normal',
             'body' => [
-                'contentType' => '',
+                'contentType' => 'html',
                 'content' => '',
             ],
-            'toRecipients' => []
+            'toRecipients' => [],
+            'attachments' => []
         ];
     }
 
@@ -37,9 +46,23 @@ class MessageFactory
         return $this->message;
     }
 
-    public function setImportance(string $importance)
+    public function setLowImportance()
     {
-        $this->message['importance'] = $importance;
+        $this->message['importance'] = self::LOW_IMPORTANCE;
+
+        return $this;
+    }
+    
+    public function setNormalImportance()
+    {
+        $this->message['importance'] = self::NORMAL_IMPORTANCE;
+
+        return $this;
+    }
+    
+    public function setHighImportance()
+    {
+        $this->message['importance'] = self::HIGH_IMPORTANCE;
 
         return $this;
     }
@@ -60,7 +83,7 @@ class MessageFactory
 
     public function setBody(string $body)
     {
-        $this->message['body']['content'] = htmlentities($body);
+        $this->message['body']['content'] = $body;
         return $this;
     }
 
@@ -78,21 +101,14 @@ class MessageFactory
         return $this;
     }
 
-    public function addAttachment(string $file)
+    public function addAttachment(FileAttachment $file)
     {
-        $this->attachments[] = $this->createAttachment($file);
+        if ($file->getSize() > GraphMailHandler::MIN_UPLOAD_SESSION_SIZE) {
+            throw new \Exception("The attachment size cannot be greater than 3MB", 1);
+        }
+
+        $this->message['attachments'][] = $file->jsonSerialize();
 
         return $this;
-    }
-
-    private function createAttachment(string $file)
-    {
-        return [
-            'id' => '',
-            'name' => '',
-            'size' => 0,
-            'contentBytes' => base64_encode($file),
-            'isInline' => false,
-        ];
     }
 }
