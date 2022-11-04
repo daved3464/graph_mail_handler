@@ -74,9 +74,9 @@ class GraphMailHandler
     /** 
      * @return \Generator<int, array<int,Message>>
      */
-    public function requestPage(EmailParams $params = null)
+    public function requestPage(EmailParams $params = null, $select_params = null, $filter_params = null)
     {
-        $filters = [];
+        $filters = $filter_params ?? [];
 
         if ($params?->withAttachments) {
             $filters[] = "hasAttachments eq true";
@@ -90,7 +90,7 @@ class GraphMailHandler
                     'INBOX'
                 ),
                 $this->buildQuery(
-                    ['id', 'hasAttachments', 'from'],
+                    $select_params,
                     $filters
                 )
             ]);
@@ -162,11 +162,12 @@ class GraphMailHandler
                 $id
             )
         )
-        ->attachBody(['isRead' => true])
-        ->execute();
+            ->attachBody(['isRead' => true])
+            ->execute();
     }
 
-    public function markAsImportant(string $id){
+    public function markAsImportant(string $id)
+    {
         return $this->graph->createRequest(
             'patch',
             sprintf(
@@ -175,8 +176,8 @@ class GraphMailHandler
                 $id
             )
         )
-        ->attachBody(['importance' => Importance::HIGH])
-        ->execute();
+            ->attachBody(['importance' => Importance::HIGH])
+            ->execute();
     }
 
     public function moveToFolder(string $mail_id, string $folder_id)
@@ -189,8 +190,8 @@ class GraphMailHandler
                 $mail_id
             )
         )
-        ->attachBody(['destinationId' => $folder_id])
-        ->execute();
+            ->attachBody(['destinationId' => $folder_id])
+            ->execute();
     }
 
     public function uploadAttachment(string $mail_id, FileAttachment $file)
