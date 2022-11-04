@@ -183,7 +183,7 @@ class GraphMailHandler
     public function moveToFolder(string $mail_id, string $folder_id)
     {
         return $this->graph->createRequest(
-            'patch',
+            'post',
             sprintf(
                 ApplicationEndpoints::MAIL->value . '/%s/move',
                 $this->email,
