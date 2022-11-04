@@ -5,12 +5,12 @@ namespace Hollow3464\GraphMailHandler;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Stream;
-use League\OAuth2\Client\Token\AccessTokenInterface;
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Http\GraphResponse;
 use Microsoft\Graph\Model\AttachmentItem;
 use Microsoft\Graph\Model\AttachmentType;
 use Microsoft\Graph\Model\FileAttachment;
+use Microsoft\Graph\Model\Importance;
 use Microsoft\Graph\Model\Message;
 use Microsoft\Graph\Model\UploadSession;
 use Psr\Http\Client\ClientInterface;
@@ -24,7 +24,7 @@ class GraphMailHandler
     const UPLOAD_CHUNK_SIZE = 4194304;
 
     public function __construct(
-        private string $email,        
+        private string $email,
         private ClientInterface $client,
         private RequestFactoryInterface $requests,
         private Graph $graph,
@@ -61,7 +61,7 @@ class GraphMailHandler
     }
 
     private function buildSelectQuery(array $params = ['id', 'hasAttachments', 'from']): string
-    {        
+    {
         return '$select=' . join(',', $params);
     }
 
@@ -152,6 +152,47 @@ class GraphMailHandler
             ->execute();
     }
 
+    public function markAsRead(string $id)
+    {
+        return $this->graph->createRequest(
+            'patch',
+            sprintf(
+                ApplicationEndpoints::MAIL->value . '/%s',
+                $this->email,
+                $id
+            )
+        )
+        ->attachBody(['isRead' => true])
+        ->execute();
+    }
+
+    public function markAsImportant(string $id){
+        return $this->graph->createRequest(
+            'patch',
+            sprintf(
+                ApplicationEndpoints::MAIL->value . '/%s',
+                $this->email,
+                $id
+            )
+        )
+        ->attachBody(['importance' => Importance::HIGH])
+        ->execute();
+    }
+
+    public function moveToFolder(string $mail_id, string $folder_id)
+    {
+        return $this->graph->createRequest(
+            'patch',
+            sprintf(
+                ApplicationEndpoints::MAIL->value . '/%s/move',
+                $this->email,
+                $mail_id
+            )
+        )
+        ->attachBody(['destinationId' => $folder_id])
+        ->execute();
+    }
+
     public function uploadAttachment(string $mail_id, FileAttachment $file)
     {
         return $this->graph
@@ -240,7 +281,7 @@ class GraphMailHandler
             //Create chunk in memory
             $chunk = new Stream(fopen('php://memory', 'r+'));
             $chunk->write($stream->read(self::UPLOAD_CHUNK_SIZE));
-            
+
             $range = sprintf(
                 "bytes %s-%s/%s",
                 $init_range,
