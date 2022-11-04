@@ -3,10 +3,8 @@
 namespace Hollow3464\GraphMailHandler;
 
 use GuzzleHttp\Psr7\Stream;
-use GuzzleHttp\Psr7\Utils;
 use Microsoft\Graph\Model\Attachment;
 use Microsoft\Graph\Model\FileAttachment;
-use Psr\Http\Message\StreamInterface;
 
 class FileAttachmentFactory
 {
@@ -28,15 +26,15 @@ class FileAttachmentFactory
             throw new \Exception("The file is too big to upload", 1);
         }
 
+        $stream = new Stream(fopen($file, 'r'));
+
         return $attachment
-            ->setContentBytes(new Stream(Utils::streamFor(
-                base64_encode(file_get_contents($file))
-            )->detach()))
+            ->setContentBytes($stream)
             ->setContentType(mime_content_type($file) ?: 'text/plain')
             ->setSize(filesize($file));
     }
 
-    public static function fromStream(string $filename, StreamInterface $stream): Attachment
+    public static function fromStream(string $filename, Stream $stream): Attachment
     {
         $attachment = new FileAttachment(['@odata.type' => '#microsoft.graph.fileAttachment']);
 
@@ -54,11 +52,8 @@ class FileAttachmentFactory
             throw new \Exception("A mime type for the file in the stream must be provided", 1);
         }
 
-
         return $attachment
-            ->setContentBytes(new Stream(Utils::streamFor(
-                base64_encode($stream)
-            )->detach()))
+            ->setContentBytes($stream)
             ->setContentType($stream->getMetadata('mime_type'))
             ->setSize($stream->getSize());
     }

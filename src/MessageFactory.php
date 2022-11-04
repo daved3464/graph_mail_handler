@@ -2,6 +2,7 @@
 
 namespace Hollow3464\GraphMailHandler;
 
+use Microsoft\Graph\Model\Attachment;
 use Microsoft\Graph\Model\FileAttachment;
 
 class MessageFactory
@@ -52,14 +53,14 @@ class MessageFactory
 
         return $this;
     }
-    
+
     public function setNormalImportance()
     {
         $this->message['importance'] = self::NORMAL_IMPORTANCE;
 
         return $this;
     }
-    
+
     public function setHighImportance()
     {
         $this->message['importance'] = self::HIGH_IMPORTANCE;
@@ -107,7 +108,10 @@ class MessageFactory
             throw new \Exception("The attachment size cannot be greater than 3MB", 1);
         }
 
-        $this->message['attachments'][] = $file->jsonSerialize();
+        $attachment = $file->jsonSerialize();
+        $attachment['contentBytes'] = base64_encode($file->getContentBytes());
+
+        $this->message['attachments'][] = $attachment;
 
         return $this;
     }
