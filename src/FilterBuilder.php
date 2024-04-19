@@ -1,15 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Hollow3464\GraphMailHandler;
 
-class FilterBuilder
+final class FilterBuilder
 {
     private string $filters;
 
     public function __construct(
         private array $params
-    ) {        
-    }
+    ) {}
 
     private function build()
     {

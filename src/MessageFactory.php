@@ -1,18 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Hollow3464\GraphMailHandler;
 
-use Microsoft\Graph\Model\Attachment;
 use Microsoft\Graph\Model\FileAttachment;
+use Exception;
 
-class MessageFactory
+final class MessageFactory
 {
-    const LOW_IMPORTANCE =  "low";
-    const NORMAL_IMPORTANCE = "normal";
-    const HIGH_IMPORTANCE = "high";
+    public const LOW_IMPORTANCE =  "low";
+    public const NORMAL_IMPORTANCE = "normal";
+    public const HIGH_IMPORTANCE = "high";
 
-    const HTML_CONTENT = 'html';
-    const TEXT_CONTENT = 'text';
+    public const HTML_CONTENT = 'html';
+    public const TEXT_CONTENT = 'text';
 
     private array|null $message = null;
 
@@ -33,15 +35,15 @@ class MessageFactory
     public function build()
     {
         if (!$this->message['body']['contentType']) {
-            throw new \Exception("Content type must be set", 1);
+            throw new Exception("Content type must be set", 1);
         }
 
         if (!$this->message['body']['content']) {
-            throw new \Exception("Content must be set", 1);
+            throw new Exception("Content must be set", 1);
         }
 
         if (!count($this->message['toRecipients'])) {
-            throw new \Exception("Cant create message without recipients", 1);
+            throw new Exception("Cant create message without recipients", 1);
         }
 
         return $this->message;
@@ -105,7 +107,7 @@ class MessageFactory
     public function addAttachment(FileAttachment $file)
     {
         if ($file->getSize() > GraphMailHandler::MIN_UPLOAD_SESSION_SIZE) {
-            throw new \Exception("The attachment size cannot be greater than 3MB", 1);
+            throw new Exception("The attachment size cannot be greater than 3MB", 1);
         }
 
         $attachment = $file->jsonSerialize();
