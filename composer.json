@@ -1,6 +1,6 @@
 {
-    "name": "hollow3464/graph-mail-handler",
-    "description": "Simple Microsoft Graph API Mail Handler",
+    "name": "hollow3464/graph-mail-helper",
+    "description": "Simple Microsoft Graph API Mail Helper",
     "type": "library",
     "autoload": {
         "psr-4": {
