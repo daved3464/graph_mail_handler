@@ -29,12 +29,21 @@ final class FileAttachmentFactory
             throw new Exception("The file is too big to upload", 1);
         }
 
-        $stream = new Stream(fopen($file, 'r'));
+        $resource = fopen($file, 'r');
+        if (!$resource) {
+            throw new Exception("The file could not be opened", 1);
+        }
+
+        $stream = new Stream($resource);
+        $fileSize = filesize($file);
+        if ($fileSize === false) {
+            throw new Exception("The file size could not be determined", 1);
+        }
 
         return $attachment
             ->setContentBytes($stream)
             ->setContentType(mime_content_type($file) ?: 'text/plain')
-            ->setSize(filesize($file));
+            ->setSize($fileSize);
     }
 
     public static function fromStream(string $filename, Stream $stream): Attachment
@@ -55,9 +64,19 @@ final class FileAttachmentFactory
             throw new Exception("A mime type for the file in the stream must be provided", 1);
         }
 
+        $streamSize = $stream->getSize();
+        if ($streamSize === null) {
+            throw new Exception("The stream size could not be determined", 1);
+        }
+
+        $mimeType = $stream->getMetadata('mime_type');
+        if (!is_string($mimeType)) {
+            throw new Exception("The stream mime type must be a string", 1);
+        }
+
         return $attachment
             ->setContentBytes($stream)
-            ->setContentType($stream->getMetadata('mime_type'))
-            ->setSize($stream->getSize());
+            ->setContentType($mimeType)
+            ->setSize($streamSize);
     }
 }

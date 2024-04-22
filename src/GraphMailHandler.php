@@ -21,6 +21,7 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Log\LoggerInterface;
 use Exception;
 use Generator;
+use GuzzleHttp\Exception\GuzzleException;
 
 final class GraphMailHandler
 {
@@ -33,13 +34,19 @@ final class GraphMailHandler
         private RequestFactoryInterface $requests,
         private Graph $graph,
         private LoggerInterface|null $log = null
-    ) {}
+    ) {
+    }
 
     /**
+     * @param ?array<string> $select_params
+     * @param ?array<string> $filter_params
      * @return Generator<int, array<int,Message>>
      */
-    public function requestPage(EmailParams $params = null, $select_params = null, $filter_params = null)
-    {
+    public function requestPage(
+        EmailParams $params = null,
+        ?array $select_params = null,
+        ?array $filter_params = null
+    ) {
         $filters = $filter_params ?? [];
 
         if ($params?->withAttachments) {
@@ -53,10 +60,7 @@ final class GraphMailHandler
                     $this->email,
                     'INBOX'
                 ),
-                $this->buildQuery(
-                    $select_params,
-                    $filters
-                )
+                $this->buildQuery($select_params ?? [], $filters)
             ]);
 
         if ($params?->includeAttachments) {
@@ -66,8 +70,6 @@ final class GraphMailHandler
         if ($this->log) {
             $this->log->info("Retrieving mail w/ endpoint $endpoint  \n");
         }
-
-        echo "Retrieving mail w/ endpoint $endpoint  \n";
 
         $req = $this->graph
             ->createCollectionRequest('get', $endpoint)
@@ -92,9 +94,14 @@ final class GraphMailHandler
         return $data;
     }
 
+    /**
+     * @param array<string, mixed> $message
+     * @throws GuzzleException
+     * @throws \Exception
+     */
     public function createEmail(array $message): Message
     {
-        return $this->graph
+        $message = $this->graph
             ->createRequest('post', sprintf(
                 ApplicationEndpoints::MAIL_WITH_FOLDER->value,
                 $this->email,
@@ -103,20 +110,31 @@ final class GraphMailHandler
             ->attachBody($message)
             ->setReturnType(Message::class)
             ->execute();
+        if (!$message instanceof Message) {
+            throw new Exception("Failed to create message", 1);
+        }
+
+        return $message;
     }
 
     public function sendEmail(string $id): GraphResponse
     {
-        return $this->graph
+        $response =  $this->graph
             ->createRequest('post', sprintf(
                 ApplicationEndpoints::MAIL_SEND->value,
                 $this->email,
                 $id
             ))
             ->execute();
+
+        if (!$response instanceof GraphResponse) {
+            throw new Exception("Failed to send message", 1);
+        }
+
+        return $response;
     }
 
-    public function markAsRead(string $id)
+    public function markAsRead(string $id): mixed
     {
         return $this->graph->createRequest(
             'patch',
@@ -130,7 +148,7 @@ final class GraphMailHandler
             ->execute();
     }
 
-    public function markAsImportant(string $id)
+    public function markAsImportant(string $id): mixed
     {
         return $this->graph->createRequest(
             'patch',
@@ -144,7 +162,7 @@ final class GraphMailHandler
             ->execute();
     }
 
-    public function moveToFolder(string $mail_id, string $folder_id)
+    public function moveToFolder(string $mail_id, string $folder_id): mixed
     {
         return $this->graph->createRequest(
             'post',
@@ -158,7 +176,7 @@ final class GraphMailHandler
             ->execute();
     }
 
-    public function uploadAttachment(string $mail_id, FileAttachment $file)
+    public function uploadAttachment(string $mail_id, FileAttachment $file): mixed
     {
         return $this->graph
             ->createRequest('post', sprintf(
@@ -194,7 +212,7 @@ final class GraphMailHandler
             throw new Exception("The file size for an upload session must be greater than 3MB", 1);
         }
 
-        return $this->graph
+        $session = $this->graph
             ->createRequest('post', sprintf(
                 ApplicationEndpoints::ATTACHMENT->value . 'createUploadSession',
                 $this->email,
@@ -208,6 +226,12 @@ final class GraphMailHandler
             ])
             ->setReturnType(UploadSession::class)
             ->execute();
+
+        if (!$session instanceof UploadSession) {
+            throw new Exception("Failed to create upload session", 1);
+        }
+
+        return $session;
     }
 
     /**
@@ -217,9 +241,9 @@ final class GraphMailHandler
      * @throws RequestException
      * @throws ClientException
      */
-    public function uploadAttachmentToSession(UploadSession $session, StreamInterface $stream)
+    public function uploadAttachmentToSession(UploadSession $session, StreamInterface $stream): bool
     {
-        $url = $session->getUploadUrl();
+        $url = (string) $session->getUploadUrl();
         $init_range = 0;
 
         if ($stream->getSize() <= self::UPLOAD_CHUNK_SIZE) {
@@ -242,9 +266,13 @@ final class GraphMailHandler
         }
 
         while (!$stream->eof()) {
-            echo "Loading chunk! \n";
             //Create chunk in memory
-            $chunk = new Stream(fopen('php://memory', 'r+'));
+            $resource = fopen('php://memory', 'r+');
+            if (!$resource) {
+                throw new Exception("The file could not be opened", 1);
+            }
+
+            $chunk = new Stream($resource);
             $chunk->write($stream->read(self::UPLOAD_CHUNK_SIZE));
 
             $range = sprintf(
@@ -267,21 +295,27 @@ final class GraphMailHandler
                 break;
             }
 
-            $init_range = json_decode($res->getBody(), true)['nextExpectedRanges'][0];
+            /**
+             * @var array<string,array<string|int>> $data
+             */
+            $data = (array) json_decode((string)$res->getBody(), true);
+
+            /**
+             * @var int
+             */
+            $init_range = $data['nextExpectedRanges'][0];
         }
 
-        echo "FILE UPLOADED \n";
         return true;
     }
 
-    private function setEmail(string $email)
-    {
-        $this->email = $email;
-    }
-
+    /**
+     * @param ?array<string> $select_params
+     * @param ?array<string> $filter_params
+     */
     private function buildQuery(
-        array|null $select_params = null,
-        array|null $filter_params = null
+        ?array $select_params = null,
+        ?array $filter_params = null
     ): string {
 
         if (!$select_params && !$filter_params) {
@@ -302,11 +336,17 @@ final class GraphMailHandler
         ]);
     }
 
+    /**
+     * @param array<string> $params
+     */
     private function buildSelectQuery(array $params = ['id', 'hasAttachments', 'from']): string
     {
         return '$select=' . join(',', $params);
     }
 
+    /**
+     * @param array<string> $params
+     */
     private function buildFilterQuery(array $params): string
     {
         // TODO Implement Query Builder
